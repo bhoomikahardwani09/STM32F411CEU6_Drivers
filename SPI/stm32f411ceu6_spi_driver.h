@@ -1,10 +1,3 @@
-/*
- * stm32f411ceu6_spi_driver.h
- *
- *  Created on: Apr 1, 2025
- *      Author: bhoomika
- */
-
 #ifndef INC_STM32F411CEU6_SPI_DRIVER_H_
 #define INC_STM32F411CEU6_SPI_DRIVER_H_
 
