@@ -182,14 +182,15 @@ void GPIO_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority){
 	*( NVIC_PR_BASEADDR + (IPRx * 4) ) |= (IRQPriority << shift_parameter);
 
 }
-//void GPIO_IRQHandling(uint8_t PinNumber){
-//	//INTERRUPT FOR A PARTICULAR PIN NUMBER WILL BE MANAGED
-//	//clear the EXTI PR register corresponding to the pin number
-//	if(EXTI -> PR & ( 1 << PinNumber)){
-//		EXTI -> PR |= ( 1 << PinNumber);
-//	}
-//
-//}
+void GPIO_IRQHandling(uint8_t PinNumber){
+	//INTERRUPT FOR A PARTICULAR PIN NUMBER WILL BE MANAGED
+	//clear the EXTI PR(pending register) register corresponding to the pin number
+	if(EXTI -> PR & ( 1 << PinNumber)){
+		EXTI -> PR |= ( 1 << PinNumber);
+	}
+
+}
+
 
 
 
