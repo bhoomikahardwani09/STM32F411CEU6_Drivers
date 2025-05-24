@@ -8,16 +8,18 @@
 #ifndef INC_STM32F411CEU6_H_
 #define INC_STM32F411CEU6_H_
 #include<stdint.h>
+#include<stddef.h>
 #define __vo volatile
+
 ////////////////DETAILS OF PROCESSOR///////////////////////////
 #define NO_OF_PR_BITS_IMPLEMENTED   4
-//ARM Cortex M4 processor NVIC ISERx register address
+//ARM Cortex M4 processor NVIC ISERx register address (Interrupt Set Enable Register)
 #define NVIC_ISER0     ( (__vo uint32_t*)0xE000E100 )
 #define NVIC_ISER1     ( (__vo uint32_t*)0xE000E104 )
 #define NVIC_ISER2     ( (__vo uint32_t*)0xE000E108 )
 #define NVIC_ISER3     ( (__vo uint32_t*)0xE000E10C )
 
-//ARM Cortex M4 processor NVIC ICERx register address
+//ARM Cortex M4 processor NVIC ICERx register address (Interrupt Clear Enable Register)
 #define NVIC_ICER0     ( (__vo uint32_t*)0XE000E180 )
 #define NVIC_ICER1     ( (__vo uint32_t*)0XE000E184 )
 #define NVIC_ICER2     ( (__vo uint32_t*)0XE000E188 )
@@ -122,6 +124,7 @@ typedef struct{
 	__vo uint32_t MEMRMP;
 	__vo uint32_t PMC;
 	__vo uint32_t EXTICR[4];
+	__vo uint32_t RESERVED;
 	__vo uint32_t CMPCR;
 }SYSCFG_RegDef_t;
 
@@ -217,6 +220,7 @@ typedef struct{
 		                              (x == GPIOD)?3:\
 		                              (x == GPIOE)?4:\
 		                              (x == GPIOH)?7:0 )
+
 #define SPI1_RST()        do{ RCC -> APB2RSTR |= (1 << 12); RCC -> APB2RSTR &= ~(1 << 12); }while(0)
 #define SPI2_RST()        do{ RCC -> APB1RSTR |= (1 << 14); RCC -> APB1RSTR &= ~(1 << 14); }while(0)
 #define SPI3_RST()        do{ RCC -> APB1RSTR |= (1 << 15); RCC -> APB1RSTR &= ~(1 << 15); }while(0)
@@ -228,6 +232,11 @@ typedef struct{
 #define IRQ_NO_EXTI4       10
 #define IRQ_NO_EXTI9_5     23
 #define IRQ_NO_EXTI15_10   40
+#define IRQ_NO_SPI1        35
+#define IRQ_NO_SPI2        36
+#define IRQ_NO_SPI3        51
+#define IRQ_NO_SPI4        84
+#define IRQ_NO_SPI5        85
 
 #define NVIC_IRQ_PR0        0
 #define NVIC_IRQ_PR15       15
