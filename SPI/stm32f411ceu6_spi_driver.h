@@ -25,7 +25,12 @@ typedef struct{
 typedef struct{
 	SPI_RegDef_t *pSPIx;
 	SPI_Config_t SPIConfig;
-
+	uint8_t  *pTxBuffer;
+	uint8_t  *pRxBuffer;
+	uint8_t   TxLen;
+	uint8_t   RxLen;
+	uint8_t   TxState;
+	uint8_t   RxState;
 }SPI_Handle_t;
 
 //device modes of SPI
@@ -63,6 +68,17 @@ typedef struct{
 #define SPI_TX_FLAG    (1 << 1)
 #define SPI_RXNE_FLAG  (1 << 0)
 #define SPI_BUSY_FLAG  (1 << 7)
+
+//SPI Application States
+#define SPI_READY        0
+#define SPI_BUSY_IN_RX   1
+#define SPI_BUSY_IN_TX   2
+
+//possible SPI application events
+#define SPI_EVENT_TX_CMPLT  1
+#define SPI_EVENT_RX_CMPLT  2
+#define SPI_EVENT_OVR_CMPLT 3
+
 ////////////////////////////////APIs supported by this driver//////////////////////////////
 //enabling the peripheral clock
 void SPI_PeriphCLKCtrl(SPI_RegDef_t *pSPIx, uint8_t ENorDI);
@@ -75,13 +91,22 @@ void SPI_DeInit(SPI_RegDef_t *pSPIx);
 void SPI_SendData(SPI_RegDef_t *pSPIx, uint8_t *pTxBuffer, uint32_t len);
 void SPI_ReceiveData(SPI_RegDef_t *pSPIx, uint8_t *pRxBuffer, uint32_t len);
 
+uint8_t SPI_SendData_IT(SPI_Handle_t *pSPIHandle, uint8_t *pTxBuffer, uint32_t len);
+uint8_t SPI_ReceiveData_IT(SPI_Handle_t *pSPIHandle, uint8_t *pRxBuffer, uint32_t len);
+
 //IRQ Configuration & ISR Handling
-void GPIO_IRQConfig(uint8_t IRQNumber, uint8_t ENorDI);
-void GPIO_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);
-void GPIO_IRQHandling(SPI_Handle_t *pHandle);   //INTERRUPT FOR A PARTICULAR PIN NUMBER WILL BE MANAGED
+void SPI_IRQConfig(uint8_t IRQNumber, uint8_t ENorDI);
+void SPI_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);
+void SPI_IRQHandling(SPI_Handle_t *pHandle);   //INTERRUPT FOR A PARTICULAR PIN NUMBER WILL BE MANAGED
 
 //other peripheral control APIs
 void SPI_Peripheral_Control(SPI_RegDef_t *pSPIx, uint8_t ENorDI);
+void SPI_SSOE_Config(SPI_RegDef_t *pSPIx, uint8_t ENorDI);
 void SPI_SSI_Config(SPI_RegDef_t *pSPIx, uint8_t ENorDI);
+uint8_t SPI_GetFlagStatus(SPI_RegDef_t *pSPIx, uint32_t flag);
+void SPI_ClearOVRFlag(SPI_RegDef_t *pSPIx);
+void SPI_CloseTransmission(SPI_Handle_t *pSPIHandle);
+void SPI_CloseReception(SPI_Handle_t *pSPIHandle);
 
+void SPI_Application_event_callback(SPI_Handle_t *pSPIHandle, uint8_t AppEvent);
 #endif /* INC_STM32F411CEU6_SPI_DRIVER_H_ */
