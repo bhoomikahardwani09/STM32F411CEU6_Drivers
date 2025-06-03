@@ -29,6 +29,11 @@ uint32_t RCC_GetPLLOutputClock(void){
 uint8_t AHB_PreScalar[8]  = {2, 4, 8, 16, 64, 128, 256, 512};
 uint8_t APB1_PreScalar[4] = {2, 4, 8, 16};
 
+void I2C_ManageACKing(I2C_RegDef_t *pI2Cx, uint8_t ENorDI){
+	if(ENorDI == ENABLE) pI2Cx->I2C_CR1 |= (1 << I2C_CR1_ACK);
+	else pI2Cx->I2C_CR1 &= ~(1 << I2C_CR1_ACK);
+}
+
 uint32_t RCC_GetPCLK1Value(void){
 	uint32_t pclk1, sysclk;
 	uint8_t clksrc, temp, ahbps, apb1ps;
@@ -117,6 +122,11 @@ uint8_t I2C_GetFlagStatus(I2C_RegDef_t *pI2Cx, uint32_t flag){
 	if(pI2Cx->I2C_SR1 & flag) return FLAG_SET;
 	return FLAG_RESET;
 }
+
+void I2C_Peripheral_Control(I2C_RegDef_t *pI2Cx, uint8_t ENorDI){
+	if(ENorDI == ENABLE) pI2Cx->I2C_CR1 |= (1 << I2C_CR1_PE);
+	else pI2Cx->I2C_CR1 &= ~(1 << I2C_CR1_PE);
+}
 static void I2C_GenrateStartCondition(I2C_RegDef_t *pI2Cx){
 	pI2Cx->I2C_CR1 |= (1 << I2C_CR1_START);
 }
@@ -156,10 +166,123 @@ void I2C_MasterSendData(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t l
 
 }
 
-void I2C_Peripheral_Control(I2C_RegDef_t *pI2Cx, uint8_t ENorDI){
-	if(ENorDI == ENABLE) pI2Cx->I2C_CR1 |= (1 << I2C_CR1_PE);
-	else pI2Cx->I2C_CR1 &= ~(1 << I2C_CR1_PE);
+void I2C_MasterReceiveData(I2C_Handle_t *pI2CHandle, uint8_t *pRxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr){
+	//generate the START cond.n
+	I2C_GenrateStartCondition(pI2CHandle->pI2Cx); //helper function
+	//2. confirm that the start cond.n is completed by checking the SB flag in SR1
+	// Until the SB is cleared SCL will be stretched
+	while(! I2C_GetFlagStatus(pI2CHandle->pI2Cx, (1 << I2C_SR1_SB)) );
+
+	//3. send the address of the slave with r/nw = 1
+	SlaveAddr = SlaveAddr << 1;
+	SlaveAddr |= 0x01;
+	pI2CHandle->pI2Cx->I2C_DR = SlaveAddr;
+	//4. confirm that the address phase is completed by checking the ADDR flag in the SR1
+	while(! I2C_GetFlagStatus(pI2CHandle->pI2Cx, (1 << I2C_SR1_ADDR)) );
+
+	//TO READ ONLY 1 BYTE OF DATA
+	if(len == 1){
+		//Disable the ACKing
+		I2C_ManageACKing(pI2CHandle->pI2Cx, DISABLE);
+
+		//clear the ADDR flag
+		uint32_t dummyread = pI2CHandle->pI2Cx->I2C_SR1;
+		dummyread = pI2CHandle->pI2Cx->I2C_SR2;
+		(void)dummyread;
+
+		//waithing until the RxNE is set
+		while(! I2C_GetFlagStatus(pI2CHandle->pI2Cx, (1 << I2C_SR1_RXNE)) );
+
+		//generate the STOP cond.n
+		if(sr == 0){
+			pI2CHandle->pI2Cx->I2C_CR1 |= (1 << I2C_CR1_STOP);
+		}
+
+
+		//read the data from the DR
+		*pRxBuffer = pI2CHandle->pI2Cx->I2C_DR;
+	}
+	else if(len > 1){
+		//clear the ADDR flag
+		uint32_t dummyread = pI2CHandle->pI2Cx->I2C_SR1;
+		dummyread = pI2CHandle->pI2Cx->I2C_SR2;
+		(void)dummyread;
+
+		//read data until len becomes 0
+		for(uint32_t i = len; i > 0; i--){
+			//wait until RxNE is set
+			while(! I2C_GetFlagStatus(pI2CHandle->pI2Cx, (1 << I2C_SR1_RXNE)) );
+
+			//read data from the buffer
+			*pRxBuffer = pI2CHandle->pI2Cx->I2C_DR;
+			pRxBuffer++;
+			if(i == 2){
+				//Disable the ACKing
+				I2C_ManageACKing(pI2CHandle->pI2Cx, DISABLE);
+				//generate the STOP cond.n
+				if(sr == 0){
+					pI2CHandle->pI2Cx->I2C_CR1 |= (1 << I2C_CR1_STOP);
+				}
+			}
+		}
+
+	}
+	//re-enable the ACKing if
+	if(pI2CHandle->I2C_Config.I2C_ACKControl == I2C_ACK_EN){
+		I2C_ManageACKing(pI2CHandle->pI2Cx, ENABLE);
+	}
+
 }
+
+
+uint8_t I2C_MasterSendData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr){
+	uint8_t busy_state = pI2CHandle->TxRxState;
+
+	if( (busy_state != I2C_BUSY_IN_TX) && (busy_state != I2C_BUSY_IN_RX) ){
+		pI2CHandle->pTxBuffer = pTxBuffer;
+		pI2CHandle->Txlen = len;
+		pI2CHandle->TxRxState = I2C_BUSY_IN_TX;
+		pI2CHandle->DeviceAddr = SlaveAddr;
+		pI2CHandle->Sr = sr;
+
+		//generate the start condition
+		I2C_GenrateStartCondition(pI2CHandle->pI2Cx);
+
+		//enable the ITBUFEN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITBUFEN);
+		//enable the ITEVFEN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITEVTEN);
+		//enable the ITERREN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITERREN);
+	}
+	return busy_state;
+}
+
+uint8_t I2C_MasterReceiveData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pRxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr){
+	uint8_t busy_state = pI2CHandle->TxRxState;
+
+	if( (busy_state != I2C_BUSY_IN_TX) && (busy_state != I2C_BUSY_IN_RX) ){
+		pI2CHandle->pRxBuffer = pRxBuffer;
+		pI2CHandle->Rxlen = len;
+		pI2CHandle->TxRxState = I2C_BUSY_IN_RX;
+		pI2CHandle->DeviceAddr = SlaveAddr;
+		pI2CHandle->RxSize = len;//Rxsize is used in the ISR code to manage the data reception 
+		pI2CHandle->Sr = sr;
+
+		//generate the start condition
+		I2C_GenrateStartCondition(pI2CHandle->pI2Cx);
+
+		//enable the ITBUFEN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITBUFEN);
+		//enable the ITEVFEN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITEVTEN);
+		//enable the ITERREN control bit
+		pI2CHandle->pI2Cx->I2C_CR2 |= (1 << I2C_CR2_ITERREN);
+	}
+	return busy_state;
+
+}
+
 
 //IRQ Configuration & ISR Handling
 void I2C_IRQConfig(uint8_t IRQNumber, uint8_t ENorDI){

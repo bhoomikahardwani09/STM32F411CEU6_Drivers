@@ -35,8 +35,11 @@ typedef struct{
 #define I2C_FM_DUTY_2     0
 #define I2C_FM_DUTY_16_9  1
 
-//I2C related status flags definitions
-#define I2C_
+//I2C application states
+#define I2C_READY       0
+#define I2C_BUSY_IN_RX  1
+#define I2C_BUSY_IN_TX  2
+
 
 ////////////////////////////////APIs supported by this driver//////////////////////////////
 //enabling the peripheral clock
@@ -47,11 +50,11 @@ void I2C_Init(I2C_Handle_t *pI2CHandle);
 void I2C_DeInit(I2C_RegDef_t *pI2Cx);
 
 //Data send and receive
-void I2C_MasterSendData(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t len, uint8_t SlaveAddr);
-void I2C_ReceiveData(I2C_RegDef_t *pI2Cx, uint8_t *pRxBuffer, uint32_t len);
+void I2C_MasterSendData(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr);
+void I2C_MasterReceiveData(I2C_Handle_t *pI2CHandle, uint8_t *pRxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr);
 
-uint8_t I2C_SendData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t len);
-uint8_t I2C_ReceiveData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pRxBuffer, uint32_t len);
+uint8_t I2C_MasterSendData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pTxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr);
+uint8_t I2C_MasterReceiveData_IT(I2C_Handle_t *pI2CHandle, uint8_t *pRxBuffer, uint32_t len, uint8_t SlaveAddr, uint8_t sr);
 
 //IRQ Configuration & ISR Handling
 void I2C_IRQConfig(uint8_t IRQNumber, uint8_t ENorDI);
@@ -59,9 +62,11 @@ void I2C_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);
 
 
 //other peripheral control APIs
+void I2C_ManageACKing(I2C_RegDef_t *pI2Cx, uint8_t ENorDI);
 void I2C_Peripheral_Control(I2C_RegDef_t *pI2Cx, uint8_t ENorDI);
 uint8_t I2C_GetFlagStatus(I2C_RegDef_t *pI2Cx, uint32_t flag);
 
 void I2C_Application_event_callback(I2C_Handle_t *pI2CHandle, uint8_t AppEvent);
+
 
 #endif /* INC_STM32F411CEU6_I2C_DRIVER_H_ */
