@@ -158,6 +158,19 @@ typedef struct{
 
 }I2C_RegDef_t;
 
+
+//Peripheral register Definition structure for USART
+typedef struct{
+	__vo uint32_t USART_SR;
+	__vo uint32_t USART_DR;
+	__vo uint32_t USART_BRR;
+	__vo uint32_t USART_CR1;
+	__vo uint32_t USART_CR2;
+	__vo uint32_t USART_CR3;
+	__vo uint32_t USART_GTPR;
+
+}USART_RegDef_t;
+
 //peripheral definitions
 #define GPIOA   ( (GPIO_RegDef_t*)GPIOA_BASEADDR )
 #define GPIOB   ( (GPIO_RegDef_t*)GPIOB_BASEADDR )
@@ -179,6 +192,10 @@ typedef struct{
 #define I2C1    ( (I2C_RegDef_t*)I2C1_BASEADDR )
 #define I2C2    ( (I2C_RegDef_t*)I2C2_BASEADDR )
 #define I2C3    ( (I2C_RegDef_t*)I2C3_BASEADDR )
+
+#define USART1  (  (USART_RegDef_t*)USART1_BASEADDR )
+#define USART2  (  (USART_RegDef_t*)USART2_BASEADDR )
+#define USART6  (  (USART_RegDef_t*)USART6_BASEADDR )
 
 //clock enable macros for GPIOx peripherals
 #define GPIOA_PCLK_EN()   ( RCC -> AHB1ENR |= (1 << 0) )
@@ -248,6 +265,11 @@ typedef struct{
 #define I2C1_RST()        do{ RCC -> APB1RSTR |= (1 << 21); RCC -> APB1RSTR &= ~(1 << 21); }while(0)
 #define I2C2_RST()        do{ RCC -> APB1RSTR |= (1 << 22); RCC -> APB1RSTR &= ~(1 << 22); }while(0)
 #define I2C3_RST()        do{ RCC -> APB1RSTR |= (1 << 23); RCC -> APB1RSTR &= ~(1 << 23); }while(0)
+
+#define USART1_RST()      do{ RCC -> APB2RSTR |= (1 << 4); RCC -> APB2RSTR &= ~(1 << 4); }while(0)
+#define USART2_RST()      do{ RCC -> APB1RSTR |= (1 << 17); RCC -> APB1RSTR &= ~(1 << 17); }while(0)
+#define USART6_RST()      do{ RCC -> APB2RSTR |= (1 << 5); RCC -> APB2RSTR &= ~(1 << 5); }while(0)
+
 //IRQ(Interrupt Request ) number
 #define IRQ_NO_EXTI0        6
 #define IRQ_NO_EXTI1        7
@@ -330,8 +352,29 @@ typedef struct{
 #define I2C_SR2_GENCALL     4
 #define I2C_SR2_DUALF       7
 
+//BIT position definition for USART peripheral
+#define USART_CR1_RE       2
+#define USART_CR1_TE       3
+#define USART_CR1_RXNEIE   5
+#define USART_CR1_TCIE     6
+#define USART_CR1_TXEIE    7
+#define USART_CR1_PS       9
+#define USART_CR1_PCE      10
+#define USART_CR1_M        12
+#define USART_CR1_UE       13
+
+#define USART_CR12_STOP    12
+
+#define USART_CR3_RTSE     8
+#define USART_CR3_CTSE     9
+
+#define USART_SR_RXNE      5
+#define USART_SR_TC        6
+#define USART_SR_TXE       7
+
 #include "stm32f411ceu6_gpio_driver.h"
 #include "stm32f411ceu6_spi_driver.h"
 #include "stm32f411ceu6_i2c_driver.h"
+#include "stm32f411ceu6_usart_driver.h"
 
 #endif /* INC_STM32F411CEU6_H_ */
