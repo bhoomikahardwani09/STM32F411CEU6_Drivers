@@ -5,7 +5,7 @@
 
 typedef struct{
 	uint8_t USART_Mode;
-	uint8_t USART_Baudrate;
+	uint32_t USART_Baudrate;
 	uint8_t USART_Stopbits;
 	uint8_t WordLength;
 	uint8_t USART_ParityControl;
@@ -32,9 +32,9 @@ typedef struct{
 #define USART_MODE_TXRX   2
 
 //USART_Baudrate
-#define USART_STD_BAUD_1200					1200
-#define USART_STD_BAUD_2400					2400
-#define USART_STD_BAUD_9600					9600
+#define USART_STD_BAUD_1200			        1200
+#define USART_STD_BAUD_2400			        2400
+#define USART_STD_BAUD_9600				9600
 #define USART_STD_BAUD_19200 				19200
 #define USART_STD_BAUD_38400 				38400
 #define USART_STD_BAUD_57600 				57600
@@ -42,8 +42,8 @@ typedef struct{
 #define USART_STD_BAUD_230400 				230400
 #define USART_STD_BAUD_460800 				460800
 #define USART_STD_BAUD_921600 				921600
-#define USART_STD_BAUD_2M 					2000000
-#define SUART_STD_BAUD_3M                   3000000
+#define USART_STD_BAUD_2M 				2000000
+#define SUART_STD_BAUD_3M                               3000000
 
 //@USART_ParityControl
 #define USART_PARITY_EN_ODD   2
@@ -68,6 +68,17 @@ typedef struct{
 
 #define USART_BUSY_IN_TX  0
 #define USART_BUSY_IN_RX  1
+#define USART_READY       2
+
+//USART application events MACROS//
+#define USART_EV_TX_CMPLT  1
+#define USART_EV_RX_CMPLT  2
+#define USART_EV_CTS       3
+#define USART_EV_IDLE      4
+#define USART_EV_ORE       5
+#define USART_ER_FE        6
+#define USART_ER_NF        7
+#define USART_ER_ORE       8
 
 ////////////////////////////////APIs supported by this driver//////////////////////////////
 //enabling the peripheral clock
@@ -93,9 +104,9 @@ void USART_ClearFlag(USART_RegDef_t *pUSARTx, uint16_t StatusFlagName);
 void USART_IRQConfig(uint8_t IRQNumber, uint8_t ENorDI);
 void USART_IRQPriority(uint8_t IRQNumber, uint8_t IRQPriority);
 
+void USART_IRQHandling(USART_Handle_t *pUSARTHandle);
 
-
-
+void USART_ApplicationEventCallback(USART_Handle_t *pUSARTHandle, uint8_t AppEvent);
 
 
 

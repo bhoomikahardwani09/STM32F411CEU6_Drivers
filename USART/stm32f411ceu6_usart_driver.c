@@ -23,6 +23,52 @@ void USART_PeriphCLKCtrl(USART_RegDef_t *pUSARTx, uint8_t ENorDI){
 
 }
 
+void USART_SetBaudRate(USART_RegDef_t *pUSARTx, uint32_t BaudRate){
+
+	uint32_t pclkx, usartdiv, M_part, F_part, tempreg = 0;
+
+	if(pUSARTx == USART1 || pUSARTx == USART6){
+		//on APB2 bus
+		pclkx = RCC_GetPCLK2Value();
+	}
+	else{
+		//on APB1 bus
+		pclkx = RCC_GetPCLK1Value();
+	}
+
+	//check for the OVER8 configuration bit
+	if( pUSARTx->USART_CR1 & (1 << USART_CR1_OVER8) ){
+		//oversampling by 8
+		usartdiv = ((25 * pclkx) / (2 * BaudRate));
+	}
+	else{
+		//oversampling by 16
+		usartdiv = ((25 * pclkx) / (4 * BaudRate));
+	}
+
+	//Mantissa part calculation
+	M_part = usartdiv/100;
+	tempreg |= M_part << 4;
+
+	//Fraction part calculation
+	F_part = ( usartdiv - (M_part * 100) );
+
+	//calculate the final fractional
+	if(pUSARTx->USART_CR1 & (1 << USART_CR1_OVER8)){
+		//oversampling by 8
+		F_part = (((F_part * 8) + 50 ) / 100 ) & ((uint8_t)0x07);
+	}
+	else{
+		//oversampling by 16
+		F_part = (((F_part * 16) + 50 ) / 100 ) & ((uint8_t)0x0F);
+	}
+
+	tempreg |= F_part;
+
+	pUSARTx->USART_BRR = tempreg;
+
+
+}
 //Init & DeInit
 void USART_Init(USART_Handle_t *pUSARTHandle){
 	uint8_t tempreg = 0;
@@ -61,7 +107,7 @@ void USART_Init(USART_Handle_t *pUSARTHandle){
 	tempreg = 0;
 
 	//congiguring no. of stopbits
-	tempreg |= pUSARTHandle->USART_Config.USART_Stopbits << USART_CR12_STOP;
+	tempreg |= pUSARTHandle->USART_Config.USART_Stopbits << USART_CR2_STOP;
 
 	pUSARTHandle->pUSARTx->USART_CR2 = tempreg;
 
@@ -74,15 +120,14 @@ void USART_Init(USART_Handle_t *pUSARTHandle){
 	else if(pUSARTHandle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_RTS){
 		tempreg |= (1 << USART_CR3_RTSE);
 	}
-	else if(pUSARTHandle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_CTS){
+	else if(pUSARTHandle->USART_Config.USART_HWFlowControl == USART_HW_FLOW_CTRL_CTS_RTS){
 		tempreg |= (1 << USART_CR3_CTSE) | (1 << USART_CR3_RTSE);
 	}
 
 	pUSARTHandle->pUSARTx->USART_CR3 = tempreg;
 
 	//configuration of baudrate register
-
-
+	USART_SetBaudRate(pUSARTHandle->pUSARTx, pUSARTHandle->USART_Config.USART_Baudrate);
 }
 
 void USART_DeInit(USART_RegDef_t *pUSARTx){
@@ -275,3 +320,236 @@ uint8_t USART_GetFlagStatus(USART_RegDef_t *pUSARTx , uint32_t flag){
 
 void USART_ClearFlag(USART_RegDef_t *pUSARTx, uint16_t StatusFlagName);
 
+void USART_IRQHandling(USART_Handle_t *pUSARTHandle)
+{
+
+	uint32_t temp1, temp2, temp3;
+
+	//////////////Check for TC flag///////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_TC);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR1 & (1 << USART_CR1_TCIE); //transmission complete interrupt enable
+
+	if(temp1 && temp2)
+	{
+		//TC interrupt//
+
+		//close transmission & call application_callback if Tx len = 0
+		if(pUSARTHandle->TxBusyState == USART_BUSY_IN_TX)
+		{
+
+			//check the TXlen
+			if(! pUSARTHandle->Txlen)
+			{
+				//clear TC and TCIE flags
+				pUSARTHandle->pUSARTx->USART_SR &= ~(1 << USART_SR_TC);
+				pUSARTHandle->pUSARTx->USART_CR1 &= ~(1 << USART_CR1_TCIE);
+
+				//Reset the application state
+				pUSARTHandle->TxBusyState == USART_READY;
+				pUSARTHandle->pTxBuffer = NULL;
+				pUSARTHandle->Txlen = 0;
+				USART_ApplicationEventCallback(pUSARTHandle, USART_EV_TX_CMPLT);
+			}
+
+		}
+
+	}
+
+	///////////Check for TXE flag//////////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_TXE);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR1 & (1 << USART_CR1_TXEIE);
+	uint16_t *pdata;
+
+	if(temp1 && temp2)
+	{
+		//TXE interrupt//
+
+		if(pUSARTHandle->TxBusyState == USART_BUSY_IN_TX)
+		{
+
+			//send data until len = 0
+			if(pUSARTHandle->Txlen > 0)
+			{
+
+				//check for word length
+				if(pUSARTHandle->USART_Config.WordLength == USART_WORDLEN_9BITS)
+				{
+					//9 bit data//
+					//load DR with 2bytes data and mask the other 7 bits
+					pdata = (uint16_t*)pUSARTHandle->pTxBuffer;
+					pUSARTHandle->pUSARTx->USART_DR = (*pdata & (uint16_t)0x01FF);
+
+					//check for parity control
+					if(pUSARTHandle->USART_Config.USART_ParityControl == USART_PARITY_DI)
+					{
+						//no parity used
+						pUSARTHandle->pTxBuffer += 2;
+
+					}
+					else
+					{
+						//parity is used
+						//9bit is replaced by the parity bit
+						pUSARTHandle->pTxBuffer ++;
+					}
+					pUSARTHandle->Txlen --;
+
+				}
+				else
+				{
+					//8 bit data//
+					//load DR with 1byte data
+					pUSARTHandle->pUSARTx->USART_DR = (*pUSARTHandle->pTxBuffer & (uint8_t)0xFF);
+					pUSARTHandle->pTxBuffer ++;
+					pUSARTHandle->Txlen --;
+				}
+
+
+			}
+			if(! pUSARTHandle->Txlen)
+			{
+				//disable the TXEIE bit
+				pUSARTHandle->pUSARTx->USART_CR1 &= ~(1 << USART_CR1_TXEIE);
+
+			}
+		}
+
+	}
+
+	////////////////check for RXNE flag///////////////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_RXNE);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR1 & (1 << USART_CR1_RXNEIE);
+
+	if(temp1 && temp2)
+	{
+		//RXNE Interrupt//
+		if(pUSARTHandle->RxBusyState == USART_BUSY_IN_RX)
+		{
+			if(pUSARTHandle->Rxlen > 0)
+			{
+				//check for word length
+				if(pUSARTHandle->USART_Config.WordLength == USART_WORDLEN_9BITS)
+				{
+					//we'll receive 9bits of data
+
+					//check for parity control
+					if(pUSARTHandle->USART_Config.USART_ParityControl == USART_PARITY_DI)
+					{
+						//no parity is used
+						//read the 1st 9 bits and mask the other
+						*((uint16_t*)pUSARTHandle->pRxBuffer) = ((pUSARTHandle->pUSARTx->USART_DR ) & (uint16_t)0x01FF);
+						pUSARTHandle->pRxBuffer += 2;
+						pUSARTHandle->Rxlen--;
+
+					}
+					else
+					{
+						//parity is used, 8bits will be received
+						*(pUSARTHandle->pRxBuffer) = (uint8_t)(pUSARTHandle->pUSARTx->USART_DR & (uint8_t)0xFF);
+						pUSARTHandle->pRxBuffer += 2;
+						pUSARTHandle->Rxlen--;
+					}
+
+				}
+				else
+				{
+					//we'll receive 8bits of data
+
+					//check for parity
+					if(pUSARTHandle->USART_Config.USART_ParityControl == USART_PARITY_DI)
+					{
+						//no parity is used
+						*(pUSARTHandle->pRxBuffer) = (uint8_t)(pUSARTHandle->pUSARTx->USART_DR & (uint8_t)0xFF);
+
+					}
+					else{
+						//parity is used
+						//1st 7bits will be read and other will be masked
+						*(pUSARTHandle->pRxBuffer) = (uint8_t)(pUSARTHandle->pUSARTx->USART_DR & (uint8_t)0x7F);
+
+					}
+					pUSARTHandle->pRxBuffer ++;
+					pUSARTHandle->Rxlen--;
+
+				}
+
+			}
+			if(! pUSARTHandle->Rxlen)
+			{
+				//disable the RXNEIE interrupt
+				pUSARTHandle->pUSARTx->USART_CR1 &= ~(1 << USART_CR1_RXNEIE);
+				pUSARTHandle->RxBusyState = USART_READY;
+				USART_ApplicationEventCallback(pUSARTHandle, USART_EV_RX_CMPLT);
+			}
+
+		}
+
+	}
+
+	//////////check for CTS flag//////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_CTS);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR3 & (1 << USART_CR3_CTSE);
+	temp3 = pUSARTHandle->pUSARTx->USART_CR3 & (1 << USART_CR3_CTSIE);
+
+	if(temp1 && temp2 && temp3)
+	{
+		//clear the CTS flag in SR
+		pUSARTHandle->pUSARTx->USART_SR &= ~(1 << USART_SR_CTS);
+		//call application_callback
+		USART_ApplicationEventCallback(pUSARTHandle, USART_EV_CTS);
+
+	}
+
+	////////check for IDLE detection flag/////////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_IDLE);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR1 & (1 << USART_CR1_IDLEIE);
+
+	if(temp1 && temp2)
+	{
+		//clear the IDLE flag
+		//read the SR and then DR
+		uint8_t dummy;
+		dummy = pUSARTHandle->pUSARTx->USART_SR;
+		dummy = pUSARTHandle->pUSARTx->USART_DR;
+		(void)dummy;
+		USART_ApplicationEventCallback(pUSARTHandle, USART_EV_IDLE);
+
+	}
+
+	////////check for Overrun detection flag//////////////
+	temp1 = pUSARTHandle->pUSARTx->USART_SR & (1 << USART_SR_ORE);
+	temp2 = pUSARTHandle->pUSARTx->USART_CR1 & (1 << USART_CR1_RXNEIE);
+	if(temp1 && temp2)
+	{
+		USART_ApplicationEventCallback(pUSARTHandle, USART_EV_ORE);
+
+	}
+
+	////////check for error flag///////
+	//Error Interrupt Enable Bit is required to enable interrupt generation in case of a framing
+	//error, overrun error or noise flag , in case of Multi Buffer Communication
+
+	temp1 = pUSARTHandle->pUSARTx->USART_CR3 & (1 << USART_CR3_EIE);
+
+	if(temp1)
+	{
+		temp2 = pUSARTHandle->pUSARTx->USART_SR;
+
+		if(temp2 & (1 << USART_SR_FE)){
+			USART_ApplicationEventCallback(pUSARTHandle, USART_ER_FE);
+
+		}
+		if(temp2 & (1 << USART_SR_NF)){
+			USART_ApplicationEventCallback(pUSARTHandle, USART_ER_NF);
+		}
+		if(temp2 & (1 << USART_SR_ORE)){
+			USART_ApplicationEventCallback(pUSARTHandle, USART_ER_ORE);
+		}
+
+	}
+
+
+
+
+
+}

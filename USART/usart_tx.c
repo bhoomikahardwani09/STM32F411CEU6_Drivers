@@ -15,7 +15,7 @@
 #include "stm32f411ceu6.h"
 USART_Handle_t USART_handle;
 
-char msg[1024] = "UART TX API testing...";
+char msg[1024] = "UART TX testing...";
 
 void delay(uint32_t dfactor){
 	for(uint32_t i = 0; i < dfactor/2; i++);
@@ -66,30 +66,43 @@ void USART2_INIT(void){
 	USART_Init(&USART_handle);
 }
 
-void GPIOButtonInit(void){
-	GPIOx_HANDLE_t GPIOBtn;
+void GPIOButtonLEDInit(void){
+	GPIOx_HANDLE_t GPIO_LED, GPIOBtn;
 	GPIOBtn.pGPIOx                              = GPIOA;
 	GPIOBtn.GPIO_PinConfig.GPIO_PinMode         = GPIO_MODE_IN;
 	GPIOBtn.GPIO_PinConfig.GPIO_PinNumber       = GPIO_PIN0;
 	GPIOBtn.GPIO_PinConfig.GPIO_PinPuPdControl  = GPIO_PU;
 	GPIOBtn.GPIO_PinConfig.GPIO_PinSpeed        = GPIO_SPEED_FAST;
 
+	GPIO_LED.pGPIOx                              = GPIOC;
+	GPIO_LED.GPIO_PinConfig.GPIO_PinNumber       = GPIO_PIN13;
+	GPIO_LED.GPIO_PinConfig.GPIO_PinMode         = GPIO_MODE_OUT;
+	GPIO_LED.GPIO_PinConfig.GPIO_PinSpeed        = GPIO_SPEED_FAST;
+	GPIO_LED.GPIO_PinConfig.GPIO_PinOPType       = GPIO_OPEN_DRAIN_Config;
+	GPIO_LED.GPIO_PinConfig.GPIO_PinPuPdControl  = GPIO_NO_PUPD;
+	GPIO_Init(&GPIO_LED);
+
 	GPIO_Init(&GPIOBtn);
 }
+
 
 
 int main(){
 
 	USART2_GPIO_INIT();
 	USART2_INIT();
+	GPIOButtonLEDInit();
 	USART_PeripheralControl(USART_handle.pUSARTx, ENABLE);
 
 
 	while(1){
 
-		while(! GPIO_ReadfromInputPin(GPIOA, GPIO_PIN0));
+		while(GPIO_ReadfromInputPin(GPIOA, GPIO_PIN0));
+		delay(500000);
+		GPIO_ToggleOutputPin(GPIOC, GPIO_PIN13);
 		delay(500000);
 		USART_SendData(&USART_handle, (uint8_t*)msg, strlen(msg));
+
 	}
 
 	return 0;
