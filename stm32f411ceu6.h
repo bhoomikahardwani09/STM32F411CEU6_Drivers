@@ -355,6 +355,7 @@ typedef struct{
 //BIT position definition for USART peripheral
 #define USART_CR1_RE       2
 #define USART_CR1_TE       3
+#define USART_CR1_IDLEIE   4
 #define USART_CR1_RXNEIE   5
 #define USART_CR1_TCIE     6
 #define USART_CR1_TXEIE    7
@@ -362,19 +363,30 @@ typedef struct{
 #define USART_CR1_PCE      10
 #define USART_CR1_M        12
 #define USART_CR1_UE       13
+#define USART_CR1_OVER8    15
 
-#define USART_CR12_STOP    12
+#define USART_CR2_STOP     12
 
+#define USART_CR3_EIE      0
 #define USART_CR3_RTSE     8
 #define USART_CR3_CTSE     9
+#define USART_CR3_CTSIE    10
 
+#define USART_SR_FE        1
+#define USART_SR_NF        2
+#define USART_SR_ORE       3
+#define USART_SR_IDLE      4
 #define USART_SR_RXNE      5
 #define USART_SR_TC        6
 #define USART_SR_TXE       7
+#define USART_SR_CTS       9
+
+
 
 #include "stm32f411ceu6_gpio_driver.h"
 #include "stm32f411ceu6_spi_driver.h"
 #include "stm32f411ceu6_i2c_driver.h"
 #include "stm32f411ceu6_usart_driver.h"
+#include "stm32f411ceu6_rcc_driver.h"
 
 #endif /* INC_STM32F411CEU6_H_ */
