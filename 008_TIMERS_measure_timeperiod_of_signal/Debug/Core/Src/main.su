@@ -1,0 +1,8 @@
+../Core/Src/main.c:34:5:main	168	static
+../Core/Src/main.c:82:6:SystemClockConfig	96	static
+../Core/Src/main.c:181:6:TIMER2_Init	24	static
+../Core/Src/main.c:205:6:GPIO_Init	32	static
+../Core/Src/main.c:215:6:UART2_Init	8	static
+../Core/Src/main.c:231:6:LSE_Configuration	8	static
+../Core/Src/main.c:247:6:HAL_TIM_IC_CaptureCallback	16	static
+../Core/Src/main.c:265:6:Error_Handler	4	static
